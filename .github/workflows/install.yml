@@ -19,7 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Reconstruct application
         run: |
-          cat deploy/part-*.b64 | tr -d '\n\r ' | base64 --decode > loopgrid.zip
+          cat deploy/part-*.b64 > loopgrid.zip
+          unzip -t loopgrid.zip
           rm -rf extracted
           mkdir extracted
           unzip -q loopgrid.zip -d extracted
