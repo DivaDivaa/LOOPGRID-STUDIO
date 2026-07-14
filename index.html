@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f5">
+  <title>LoopGrid Studio</title>
+  <style>
+    *{box-sizing:border-box}html,body{height:100%;margin:0}body{display:grid;place-items:center;padding:24px;background:#f7f7f5;color:#171717;font:500 16px system-ui,-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif}.loader{display:grid;gap:14px;text-align:center}.spinner{width:32px;height:32px;margin:auto;border:3px solid #ddd;border-top-color:#171717;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.error{max-width:460px;text-align:left}.error h1{font-size:22px}.error button{min-height:44px;padding:0 18px;border:0;border-radius:12px;background:#171717;color:white;font:inherit}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+</head>
+<body>
+  <main class="loader" id="status"><div class="spinner"></div><div>Opening LoopGrid Studio…</div></main>
+  <script>
+    (async () => {
+      const status = document.getElementById('status');
+      try {
+        if (!window.fflate) throw new Error('The ZIP reader did not load.');
+        const paths = ['deploy/part-00.b64','deploy/part-01.b64','deploy/part-02.b64'];
+        const pieces = await Promise.all(paths.map(async path => {
+          const response = await fetch(path, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`Missing ${path}`);
+          return new Uint8Array(await response.arrayBuffer());
+        }));
+        const size = pieces.reduce((total, piece) => total + piece.length, 0);
+        const archive = new Uint8Array(size);
+        let offset = 0;
+        for (const piece of pieces) { archive.set(piece, offset); offset += piece.length; }
+        const files = window.fflate.unzipSync(archive);
+        const find = suffix => Object.keys(files).find(name => name.endsWith(suffix));
+        const indexPath = find('/index.html');
+        const cssPath = find('/styles.css');
+        const jsPath = find('/app.js');
+        if (!indexPath || !cssPath || !jsPath) throw new Error('The application files are incomplete.');
+        const decode = bytes => new TextDecoder().decode(bytes);
+        let page = decode(files[indexPath]);
+        const css = decode(files[cssPath]);
+        const js = decode(files[jsPath]);
+        page = page.replace('<link rel="stylesheet" href="styles.css" />', `<style>${css}</style>`);
+        page = page.replace('<script src="app.js"></script>', `<script>${js}<\/script>`);
+        document.open();
+        document.write(page);
+        document.close();
+      } catch (error) {
+        console.error(error);
+        status.className = 'error';
+        status.innerHTML = `<h1>LoopGrid could not open</h1><p>${error.message}</p><p>Check your internet connection, then reload the page.</p><button type="button" onclick="location.reload()">Try again</button>`;
+      }
+    })();
+  </script>
+</body>
+</html>
